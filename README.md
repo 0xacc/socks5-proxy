@@ -5,6 +5,8 @@ socks5-proxy is a socks5 library based on [tokio](https://github.com/tokio-rs/to
 Add this to your Cargo.toml dependency
 ```toml
 socks5-proxy = "0.1"
+tokio = { version = "1", features = ["full"] }
+anyhow = "1.0"
 ```
 
 ## Server
