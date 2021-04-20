@@ -1,6 +1,6 @@
 [package]
 name = "socks5-proxy"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["0xacc"]
 edition = "2018"
 license = "MIT OR Apache-2.0 OR GPL-3.0-or-later"
@@ -16,5 +16,4 @@ keywords = ["async", "socks5", "proxy"]
 tokio = { version = "1", features = [ "full" ] }
 thiserror = "1.0"
 log = "0.4"
-pretty_env_logger = "0.4"
 
