@@ -6,6 +6,7 @@ use std::{
     ops::{Deref, DerefMut},
     sync::Arc,
 };
+use std::borrow::Borrow;
 use thiserror::Error;
 use tokio::io::{self, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::{TcpSocket, TcpStream};
@@ -91,9 +92,49 @@ impl PendingHandshake {
 
 impl_deref!(PendingAuthenticate, TcpStream);
 impl PendingAuthenticate {
-    async fn authenticate(self, auth: &Arc<AuthMethod>) -> Result<PendingCommand> {
-        match **auth {
+    async fn authenticate(mut self, auth: &Arc<AuthMethod>) -> Result<PendingCommand> {
+        match auth.borrow() {
             AuthMethod::NoAuth => Ok(PendingCommand(self.0)),
+            AuthMethod::UserPass(user_auth) => {
+                //read data
+                let mut header = [0u8; 2];
+                self.read_exact(&mut header).await?;
+
+                let name_lenth = header[1];
+                let pass_lenth;
+                let mut one_byte = [0u8; 1];
+                let mut name_vec: Vec<u8> = Vec::new();
+                let mut pass_vec: Vec<u8> = Vec::new();
+
+                for _i in 0..name_lenth {
+                    self.read_exact(&mut one_byte).await?;
+                    name_vec.push(one_byte[0]);
+                }
+
+                self.read_exact(&mut one_byte).await?;
+                pass_lenth = one_byte[0];
+
+                for _i in 0..pass_lenth {
+                    self.read_exact(&mut one_byte).await?;
+                    pass_vec.push(one_byte[0]);
+                }
+
+                let user_name = String::from_utf8_lossy(&name_vec).to_string();
+                let user_pwd = String::from_utf8_lossy(&pass_vec).to_string();
+
+                let x = user_auth.as_ref().unwrap();
+                if x.0 == user_name && x.1 == user_pwd {
+                    //Authentication succeeded
+                    self.write_all(&[SOCKS_VER, SocksError::SUCCESS as u8]).await?;
+                    self.flush().await?;
+                    Ok(PendingCommand(self.0))
+                } else {
+                    //Authentication fail
+                    self.write_all(&[SOCKS_VER, SocksError::FAIL as u8]).await?;
+                    self.flush().await?;
+                    Err(Socks5ServerError::UnsupportAuth)
+                }
+            }
             _ => Err(Socks5ServerError::UnsupportAuth),
         }
     }
